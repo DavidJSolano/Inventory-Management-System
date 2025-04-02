@@ -18,20 +18,70 @@ with open('inventory.json','r') as file:
     data = json.load(file)
 print(data)
 
+registered_user = {}
+
+# Helper function to find an item by its ID
+def find_item_id(item_id):
+    return next((id for id in data if data["id"] == item_id), None)
+
+
+def is_valid_email(email):
+    return re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email)
 
 
 """User Register,Login,and Logout endpoint"""
 @app.route('/register',methods=['POST'])
 def register():
     #TO-DO
+    if not request.json or 'username' not in request.json or 'password' not in request.json:
+        return jsonify({'Error': 'Username and Password are required'},400)
+    
+    username = request.json['username']
+    password = request.json['password']
+    
+    if username in registered_user:
+        return jsonify({'Error': 'User already exists'}), 400
+    
+    if len(password) < 8 or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return jsonify({'Error': 'Password must be at least 8 characters long and contain at least one special character'}), 400
+    
+    #Otherwise, store user credential by default
+    registered_user[username] = password  
+    return jsonify({'Message': 'User registered successfully'}), 201
 
 @app.route('/login',methods=['POST'])
 def login():
     #TO-DO
+    if not request.json or 'username' not in request.json or 'password' not in request.json:
+        return jsonify({'Error': 'Username and password are required'}), 400
+    
+    username = request.json['username']
+    password = request.json['password']
+    
+    if registered_user.get(username) != password:
+        return jsonify({'Error': 'Invalid credentials'}), 401
+    
+    #Store user session and set session cookie
+    session['user'] = username  
+    response = jsonify({'Message': 'Login successful'})
+    response.set_cookie('Username', username, httponly=True, max_age=1800)  
+    return response, 200
 
 @app.route('/logout',methods=['POST'])
 def logout():
-    #TO-DO
+    #Remove user session
+    session.pop('user', None) 
+    response = jsonify({'Message': 'Logout successful'})
+
+    #Clears session cookie
+    response.set_cookie('username', '', expires=0)  
+    return response, 200
+
+@app.before_request
+def require_login():
+    allowed_routes = ['login', 'register']  # Routes that don't require authentication
+    if request.endpoint not in allowed_routes and 'user' not in session:
+        return jsonify({'Error': 'Unauthorized access. Please log in to view this resource.'}), 401
 
 
 """CRUD Operations"""
@@ -39,18 +89,45 @@ def logout():
 #Creates new inventory items using ID
 @app.route('/inventory', methods=['POST'])
 def create_item():
+    #TO-DO
+    required_fields = ['item_name', 'description', 'quantity', 'price']
+    if not request.json or not all(field in request.json for field in required_fields):
+        return jsonify({'Error': 'All fields are required'}), 400
+    
+    item_id = max(item['id'] for item in data) + 1 if data else 1
+    item = {**request.json, 'id': item_id}
+    data.append(item)
+    
+    return jsonify(item), 201
 
 #Lists all inventory items using ID
 @app.route('/inventory/<int:item_id>', methods=['GET'])
 def get_items(item_id):
     #TO-DO
+    item_id = find_item_id(item_id)
+    if item_id is None:
+        return jsonify({'Error': 'Student not found'}), 404
+    return jsonify(item_id)
 
 #Updates item using ID
 @app.route('/inventory/<int:item_id>', methods=['PUT'])
 def update_item(item_id):
     #TO-DO
+    id = find_item_id(item_id)
+    if id is None:
+        return jsonify({'Error': 'Item ID not found'}), 404
+    
+    id.update(request.json)
+    return jsonify(id)
+
 #Deletes item using ID
 @app.route('/inventory/<int:item_id>', methods=['DELETE'])
 def delete_item(item_id):
     #TO-DO
+    id = find_item_id(item_id)
+    if id is None:
+        return jsonify({'Error': 'Item ID not found'}), 404
+    
+    data.remove(id)
+    return jsonify({'Message': 'Item ID deletion successful'}), 200
 
