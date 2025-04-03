@@ -7,7 +7,7 @@ from datetime import timedelta
 app = Flask(__name__)
 
 #Session Configuration
-app.config['SECRET KEY'] = '449project'
+app.config['SECRET_KEY'] = '449project'
 app.config['SESSION_COOKIE_NAME'] = '449_session'
 app.config['SESSION_PERMANENT'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
@@ -32,33 +32,39 @@ def is_valid_email(email):
 """User Register,Login,and Logout endpoint"""
 @app.route('/register',methods=['POST'])
 def register():
-    #TO-DO
-    if not request.json or 'username' not in request.json or 'password' not in request.json:
-        return jsonify({'Error': 'Username and Password are required'},400)
+    if not request.json or 'username' not in request.json or 'password' not in request.json or 'email' not in request.json:
+        return jsonify({'Error': 'Username, Password, and E-mail are required'},400)
     
     username = request.json['username']
     password = request.json['password']
+    email = request.json['email']
+
+    email_pattern = r'^[\w\.-]+@[\w\.-]+\.\w{2,4}$'
+    if not re.match(email_pattern, email):
+        return jsonify({'Error': 'Invalid email format. Must be a valid email address (e.g., example@email.com)'}), 400
     
-    if username in registered_user:
-        return jsonify({'Error': 'User already exists'}), 400
+    # Check if username or email is already registered
+    if username in registered_user or any(user[1] == email for user in registered_user.values()):
+        return jsonify({'Error': 'User with this username or email already exists'}), 400
     
+    # Validate password complexity
     if len(password) < 8 or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
         return jsonify({'Error': 'Password must be at least 8 characters long and contain at least one special character'}), 400
     
+    
     #Otherwise, store user credential by default
-    registered_user[username] = password  
+    registered_user[username] = [password,email]  
     return jsonify({'Message': 'User registered successfully'}), 201
 
 @app.route('/login',methods=['POST'])
 def login():
-    #TO-DO
     if not request.json or 'username' not in request.json or 'password' not in request.json:
         return jsonify({'Error': 'Username and password are required'}), 400
     
     username = request.json['username']
     password = request.json['password']
     
-    if registered_user.get(username) != password:
+    if registered_user.get(username)[0] != password:
         return jsonify({'Error': 'Invalid credentials'}), 401
     
     #Store user session and set session cookie
