@@ -1,7 +1,9 @@
 from flask import Flask, request, jsonify, session
 import re
+import jwt
 import json
 from datetime import timedelta
+from functools import wraps
 
 
 app = Flask(__name__)
@@ -10,7 +12,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = '449project'
 app.config['SESSION_COOKIE_NAME'] = '449_session'
 app.config['SESSION_PERMANENT'] = False
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=5)
 app.config['SESSION_COOKIE_SECURE'] = False
 
 #Inventory dataset
@@ -22,11 +24,32 @@ registered_user = {}
 
 # Helper function to find an item by its ID
 def find_item_id(item_id):
-    return next((id for id in data if data["id"] == item_id), None)
+    return next((item for item in data if item["id"] == item_id), None)
 
 
 def is_valid_email(email):
     return re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email)
+
+#JWT Authentication Decorator
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('x-access-token')  # Get the token from headers
+
+        if not token:
+            return jsonify({'Message': 'Token is missing!'}), 401  
+
+        try:
+            # Decode the token using the secret key
+            test_data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            current_user = test_data['username']  # Extract user info 
+            role = data['role']
+        except:
+            return jsonify({'Message': 'Token is invalid!'}), 401  
+        
+        return f(current_user, role, *args, **kwargs)
+    
+    return decorated
 
 
 """User Register,Login,and Logout endpoint"""
@@ -38,6 +61,7 @@ def register():
     username = request.json['username']
     password = request.json['password']
     email = request.json['email']
+    role = request.json.get('role', 'user')  # Default role is 'user'
 
     email_pattern = r'^[\w\.-]+@[\w\.-]+\.\w{2,4}$'
     if not re.match(email_pattern, email):
@@ -53,11 +77,12 @@ def register():
     
     
     #Otherwise, store user credential by default
-    registered_user[username] = [password,email]  
+    registered_user[username] = [password,email,role]  
     return jsonify({'Message': 'User registered successfully'}), 201
 
 @app.route('/login',methods=['POST'])
 def login():
+    #TO-DO: implement admin role and JWT token requirement
     if not request.json or 'username' not in request.json or 'password' not in request.json:
         return jsonify({'Error': 'Username and password are required'}), 400
     
@@ -92,10 +117,10 @@ def require_login():
 
 """CRUD Operations"""
 
-#Creates new inventory items using ID
+#Creates new inventory items using ID (Admin role only)
 @app.route('/inventory', methods=['POST'])
 def create_item():
-    #TO-DO
+    #TO-DO: implement admin role and JWT token requirement
     required_fields = ['item_name', 'description', 'quantity', 'price']
     if not request.json or not all(field in request.json for field in required_fields):
         return jsonify({'Error': 'All fields are required'}), 400
@@ -109,16 +134,15 @@ def create_item():
 #Lists all inventory items using ID
 @app.route('/inventory/<int:item_id>', methods=['GET'])
 def get_items(item_id):
-    #TO-DO
     item_id = find_item_id(item_id)
     if item_id is None:
-        return jsonify({'Error': 'Student not found'}), 404
+        return jsonify({'Error': 'Items not found'}), 404
     return jsonify(item_id)
 
-#Updates item using ID
+#Updates item using ID(Admin role only)
 @app.route('/inventory/<int:item_id>', methods=['PUT'])
 def update_item(item_id):
-    #TO-DO
+    #TO-DO: implement admin role and JWT token requirement
     id = find_item_id(item_id)
     if id is None:
         return jsonify({'Error': 'Item ID not found'}), 404
@@ -126,10 +150,10 @@ def update_item(item_id):
     id.update(request.json)
     return jsonify(id)
 
-#Deletes item using ID
+#Deletes item using ID(Admin role only)
 @app.route('/inventory/<int:item_id>', methods=['DELETE'])
 def delete_item(item_id):
-    #TO-DO
+    #TO-DO: implement admin role and JWT token requirement
     id = find_item_id(item_id)
     if id is None:
         return jsonify({'Error': 'Item ID not found'}), 404
@@ -137,3 +161,9 @@ def delete_item(item_id):
     data.remove(id)
     return jsonify({'Message': 'Item ID deletion successful'}), 200
 
+# Protected route (requires valid JWT token)
+@app.route('/protected', methods=['GET'])
+@token_required
+def protected_route(current_user):
+    # The current_user is passed after token verification
+    return jsonify({'message': f'Hello, {current_user}! Welcome to the our CPSC 449 Inventory Management Backend Project!'})
