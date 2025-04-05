@@ -14,6 +14,7 @@ app.config['SESSION_COOKIE_NAME'] = '449_session'
 app.config['SESSION_PERMANENT'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=5)
 app.config['SESSION_COOKIE_SECURE'] = False
+app.config['SESSION_COOKIE_HTTPONLY'] = True  
 
 #Inventory dataset
 with open('inventory.json','r') as file:
@@ -115,12 +116,15 @@ def require_login():
         return jsonify({'Error': 'Unauthorized access. Please log in to view this resource.'}), 401
 
 
-"""CRUD Operations"""
+"""CRUD Operations (Admin only)"""
 
 #Creates new inventory items using ID (Admin role only)
 @app.route('/inventory', methods=['POST'])
-def create_item():
+@token_required
+def create_item(current_user,role):
     #TO-DO: implement admin role and JWT token requirement
+    if role != "admin":
+        return jsonify({'Error':'Unauthorized. Admin access only!'}),403
     required_fields = ['item_name', 'description', 'quantity', 'price']
     if not request.json or not all(field in request.json for field in required_fields):
         return jsonify({'Error': 'All fields are required'}), 400
@@ -133,7 +137,8 @@ def create_item():
 
 #Lists all inventory items using ID
 @app.route('/inventory/<int:item_id>', methods=['GET'])
-def get_items(item_id):
+@token_required
+def get_items(current_user,role,item_id):
     item_id = find_item_id(item_id)
     if item_id is None:
         return jsonify({'Error': 'Items not found'}), 404
@@ -141,8 +146,11 @@ def get_items(item_id):
 
 #Updates item using ID(Admin role only)
 @app.route('/inventory/<int:item_id>', methods=['PUT'])
-def update_item(item_id):
+@token_required
+def update_item(current_user,role,item_id):
     #TO-DO: implement admin role and JWT token requirement
+    if role != "admin":
+        return jsonify({'Error': 'Unauthorized '})
     id = find_item_id(item_id)
     if id is None:
         return jsonify({'Error': 'Item ID not found'}), 404
@@ -152,8 +160,11 @@ def update_item(item_id):
 
 #Deletes item using ID(Admin role only)
 @app.route('/inventory/<int:item_id>', methods=['DELETE'])
-def delete_item(item_id):
+@token_required
+def delete_item(current_user,role, item_id):
     #TO-DO: implement admin role and JWT token requirement
+    if role != "admin":
+        return jsonify({})
     id = find_item_id(item_id)
     if id is None:
         return jsonify({'Error': 'Item ID not found'}), 404
@@ -164,6 +175,10 @@ def delete_item(item_id):
 # Protected route (requires valid JWT token)
 @app.route('/protected', methods=['GET'])
 @token_required
-def protected_route(current_user):
+def protected_route(current_user,role):
     # The current_user is passed after token verification
-    return jsonify({'message': f'Hello, {current_user}! Welcome to the our CPSC 449 Inventory Management Backend Project!'})
+    return jsonify({'message': f'Hello, {current_user}! Welcome to the our CPSC 449 Inventory Management Backend Project!',
+                     'role': })
+
+if __name__ == '__main__':
+    app.run(debug=True)
