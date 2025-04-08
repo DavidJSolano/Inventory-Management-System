@@ -12,7 +12,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = '449project'
 app.config['SESSION_COOKIE_NAME'] = '449_session'
 app.config['SESSION_PERMANENT'] = False
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=5)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=20)
 app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True  
 
@@ -178,7 +178,7 @@ def delete_item(current_user,role, item_id):
 def protected_route(current_user,role):
     # The current_user is passed after token verification
     return jsonify({'message': f'Hello, {current_user}! Welcome to the our CPSC 449 Inventory Management Backend Project!',
-                     'role': })
+                     'role': role})
 
 if __name__ == '__main__':
     app.run(debug=True)
