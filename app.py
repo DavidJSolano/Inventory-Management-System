@@ -4,6 +4,7 @@ import jwt
 import json
 from datetime import timedelta
 from functools import wraps
+import datetime
 
 
 app = Flask(__name__)
@@ -44,7 +45,7 @@ def token_required(f):
             # Decode the token using the secret key
             test_data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
             current_user = test_data['username']  # Extract user info 
-            role = data['role']
+            role = test_data['role']
         except:
             return jsonify({'Message': 'Token is invalid!'}), 401  
         
@@ -95,7 +96,13 @@ def login():
     
     #Store user session and set session cookie
     session['user'] = username  
-    response = jsonify({'Message': 'Login successful'})
+    token = jwt.encode(
+        {'username': username, 'role': registered_user[username][2], 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)},
+        app.config['SECRET_KEY'],
+        algorithm="HS256"
+    )
+
+    response = jsonify({'Message': 'Login successful', 'token': token})
     response.set_cookie('Username', username, httponly=True, max_age=1800)  
     return response, 200
 
