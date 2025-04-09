@@ -18,9 +18,7 @@ app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True  
 
 #Inventory dataset
-with open('inventory.json','r') as file:
-    data = json.load(file)
-print(data)
+data = {}
 
 registered_user = {}
 
