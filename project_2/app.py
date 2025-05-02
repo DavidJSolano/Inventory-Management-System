@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import re
 
 
+"""FASTAPI and Database setup"""
 app = FastAPI()
 
 DATABASE_URL = "mysql+mysqlconnector://root:Prema$1998@localhost/inventory_db" # fix later
@@ -16,10 +17,21 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+
+""" JWT User Authentication"""
+def get_current_user(token: str = Header(...), db: Session = Depends(get_db)):
+    pass
 
 
 """Database Models"""
-
 class User(Base):
     __tablename__ = "users"
 
@@ -43,8 +55,8 @@ class InventoryItem(Base):
 
 Base.metadata.create_all(bind=engine)
 
-"""Pydantic Schemas"""
 
+"""Pydantic Schemas"""
 class UserCreate(BaseModel):
     username: str
     password: str
@@ -76,3 +88,38 @@ class InventoryOut(InventoryCreate):
     owner: str
     class Config:
         orm_mode = True
+
+
+"""User Endpoints"""
+
+@app.post("/register", response_model=UserOut)
+def register(user: UserCreate, db: Session = Depends(get_db)):
+    pass
+
+@app.post("/login")
+def login(user: UserLogin, db: Session = Depends(get_db)):
+    pass
+
+
+
+"""CRUD Endpoints"""
+
+@app.post("/inventory", response_model=InventoryOut)
+def create_item(item: InventoryCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    pass
+
+@app.get("/inventory", response_model=list[InventoryOut])
+def get_items(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    pass
+
+@app.get("/inventory/{item_id}", response_model=InventoryOut)
+def get_item(item_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    pass
+
+@app.put("/inventory/{item_id}", response_model=InventoryOut)
+def update_item(item_id: int, updates: InventoryCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    pass
+
+@app.delete("/inventory/{item_id}")
+def delete_item(item_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    pass
