@@ -27,6 +27,7 @@ def get_db():
 
 
 """ JWT User Authentication"""
+#TO:DO
 def get_current_user(token: str = Header(...), db: Session = Depends(get_db)):
     pass
 
@@ -91,7 +92,7 @@ class InventoryOut(InventoryCreate):
 
 
 """User Endpoints"""
-
+#TO-DO:
 @app.post("/register", response_model=UserOut)
 def register(user: UserCreate, db: Session = Depends(get_db)):
     pass
@@ -103,7 +104,7 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
 
 
 """CRUD Endpoints"""
-
+#TO:DO
 @app.post("/inventory", response_model=InventoryOut)
 def create_item(item: InventoryCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     pass
