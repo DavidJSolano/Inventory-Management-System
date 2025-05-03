@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+motor
+passlib[bcrypt]
+fastapi-jwt-auth
+email-validator
+python-dotenv
+sqlalchemy
+jose
+fastapi_sessions
