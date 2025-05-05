@@ -158,11 +158,7 @@ async def login(response: Response, creds: LoginModel, db: Session = Depends(get
     return {"message": "Login successful", "token": token, "role": user.role}
 
 @app.post("/logout")
-async def logout(response: Response, current: UserInDB = Depends(get_current_user), db: Session = Depends(get_db)):
-    user = db.query(UserTable).filter(UserTable.username == current.username).first()
-    if user:
-        db.delete(user)
-        db.commit()
+async def logout(response: Response):
     response.delete_cookie("Username")
     return {"message": "Logout successful"}
 
