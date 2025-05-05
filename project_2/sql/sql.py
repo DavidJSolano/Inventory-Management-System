@@ -2,7 +2,7 @@
 from fastapi import FastAPI, Response, HTTPException, Header, Depends
 from typing import Optional, List
 from datetime import datetime, timedelta
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator,constr
 from sqlalchemy import create_engine, Column, Integer, String, Float
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 import re
@@ -52,7 +52,7 @@ def get_db():
 
 # ------------------- PYDANTIC MODELS -------------------
 class RegisterModel(BaseModel):
-    username: str = Field(..., min_length=3)
+    username: str = Field(..., min_length=3,max_length = 30)
     password: str
     email: EmailStr
     role: Optional[str] = "user"
@@ -65,17 +65,17 @@ class RegisterModel(BaseModel):
         return v
 
 class LoginModel(BaseModel):
-    username: str
+    username: str = Field(...,min_length=3, max_length=30)
     password: str
 
 class InventoryModel(BaseModel):
-    item_name: str
-    description: str
-    quantity: int
-    price: float
-    manufacturer: str
-    rating: float
-    owner: Optional[str] = None
+    item_name: str= Field(...,min_length=1, max_length=100)
+    description: str = Field(..., min_length=5, max_length=1000)
+    quantity: int = Field(..., ge=0)
+    price: float = Field(..., ge=0.0)
+    manufacturer: str= Field(...,min_length=1, max_length=100)
+    rating: float = Field(..., ge=0.0, le=5.0)
+    owner: Optional[str]= None
 
 class UserInDB(BaseModel):
     id: int
