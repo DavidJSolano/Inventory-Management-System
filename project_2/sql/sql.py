@@ -133,7 +133,7 @@ async def register(data: RegisterModel, db: Session = Depends(get_db)):
 
     new_user = UserTable(
         username=data.username,
-        password=data.password,  # NOTE: Don't store plaintext in production
+        password=data.password,  
         email=data.email,
         role=data.role
     )
@@ -158,7 +158,11 @@ async def login(response: Response, creds: LoginModel, db: Session = Depends(get
     return {"message": "Login successful", "token": token, "role": user.role}
 
 @app.post("/logout")
-async def logout(response: Response):
+async def logout(response: Response, current: UserInDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.query(UserTable).filter(UserTable.username == current.username).first()
+    if user:
+        db.delete(user)
+        db.commit()
     response.delete_cookie("Username")
     return {"message": "Logout successful"}
 
@@ -166,11 +170,16 @@ async def logout(response: Response):
 @app.post("/inventory", response_model=InventoryInDB, status_code=201)
 async def create_item(item: InventoryModel, current: UserInDB = Depends(get_current_user), db: Session = Depends(get_db)):
     owner = item.owner if current.role == "admin" and item.owner else current.username
-    new_item = InventoryTable(**item.dict(), owner=owner)
+    
+    # Convert the InventoryModel into a dictionary and exclude the "owner" field if it exists
+    item_data = item.dict(exclude_unset=True)  # Use dict to get the model's data
+    item_data["owner"] = owner  # Set the owner
+
+    new_item = InventoryTable(**item_data)
     db.add(new_item)
     db.commit()
     db.refresh(new_item)
-    return InventoryInDB(id=new_item.id, **item.dict(), owner=owner)
+    return InventoryInDB(id=new_item.id, **item_data)
 
 @app.get("/inventory", response_model=List[InventoryInDB])
 async def list_items(current: UserInDB = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -178,7 +187,8 @@ async def list_items(current: UserInDB = Depends(get_current_user), db: Session 
         items = db.query(InventoryTable).all()
     else:
         items = db.query(InventoryTable).filter(InventoryTable.owner == current.username).all()
-    return [InventoryInDB(id=item.id, **item.__dict__) for item in items]
+    return [InventoryInDB(**{k: v for k, v in item.__dict__.items() if k != "_sa_instance_state"})for item in items]
+
 
 @app.get("/inventory/{item_id}", response_model=InventoryInDB)
 async def get_item(item_id: int, current: UserInDB = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -187,7 +197,8 @@ async def get_item(item_id: int, current: UserInDB = Depends(get_current_user), 
         raise HTTPException(status_code=404, detail="Item not found")
     if current.role != "admin" and item.owner != current.username:
         raise HTTPException(status_code=403, detail="Not allowed")
-    return InventoryInDB(id=item.id, **item.__dict__)
+    return InventoryInDB(**{k: v for k, v in item.__dict__.items() if k != "_sa_instance_state"})
+
 
 @app.put("/inventory/{item_id}", response_model=InventoryInDB)
 async def update_item(item_id: int, item: InventoryModel, current: UserInDB = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -197,15 +208,18 @@ async def update_item(item_id: int, item: InventoryModel, current: UserInDB = De
     if current.role != "admin" and existing.owner != current.username:
         raise HTTPException(status_code=403, detail="Not allowed")
 
-    for key, value in item.dict(exclude_unset=True).items():
-        setattr(existing, key, value)
-
-    if current.role != "admin":
-        existing.owner = current.username
+    # Update fields (example: updating quantity and price)
+    existing.item_name = item.item_name
+    existing.description = item.description
+    existing.quantity = item.quantity
+    existing.price = item.price
+    existing.manufacturer = item.manufacturer
+    existing.rating = item.rating
+    existing.owner = item.owner if item.owner else existing.owner 
 
     db.commit()
     db.refresh(existing)
-    return InventoryInDB(id=existing.id, **existing.__dict__)
+    return InventoryInDB(id=existing.id, **{key: value for key, value in existing.__dict__.items() if key not in ['_sa_instance_state', 'id']})
 
 @app.delete("/inventory/{item_id}", status_code=200)
 async def delete_item(item_id: int, current: UserInDB = Depends(get_current_user), db: Session = Depends(get_db)):
